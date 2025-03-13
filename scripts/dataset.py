@@ -81,15 +81,14 @@ class LocationDataset(Dataset):
 # Used for inference!    
 class MapDataset(Dataset):
     def __init__(self, 
-                 csv_file, 
-                bounds: Optional[Tuple[float, float, float, float]] = (-90.68099, -90.09099, 38.45601, 38.88601)):
-        self.coords = pd.read_csv(csv_file)
+                 sampled_csv : str = '/data/cher/EcoBound/data/densely_sampled_pts.csv', 
+                 bounds: Optional[Tuple[float, float, float, float]] = (-90.68099, -90.09099, 38.45601, 38.88601)):
+        self.coords = pd.read_csv(sampled_csv)
         self.coords = self.coords[self.coords["lon"] != max(self.coords["lon"])]
         self.coords = self.coords[self.coords["lat"] != max(self.coords["lat"])]
         self.coords = self.coords[self.coords["lon"] != min(self.coords["lon"])]
         self.coords = self.coords[self.coords["lat"] != min(self.coords["lat"])]
         self.bounds = bounds
-        self.stl_coords = pd.read_csv("st_louis_coords.csv")
     
     def __len__(self):
         return len(self.coords)

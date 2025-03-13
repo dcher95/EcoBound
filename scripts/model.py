@@ -66,7 +66,7 @@ class ResidualFCNet(nn.Module):
 
 
 class SDM(pl.LightningModule):
-    def __init__(self, loss_type='an_full'):
+    def __init__(self, species_file = "./data/species.npy", loss_type='an_full'):
         super(SDM, self).__init__()
 
         # TODO: Add option to include satellite imagery.
@@ -76,7 +76,7 @@ class SDM(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        species_data = np.load("data/species.npy", allow_pickle=True)
+        species_data = np.load(species_file, allow_pickle=True)
         self.num_classes = len(species_data)
         
         self.loc_encoder = ResidualFCNet(
@@ -90,6 +90,15 @@ class SDM(pl.LightningModule):
 
     def forward(self, loc_feats):
         return self.loc_encoder(loc_feats)
+    
+    def forward_location_features(self, loc_feats):
+        return self.loc_encoder(loc_feats)
+    
+    def forward_species(self, loc_feats, class_of_interest=None):
+        class_pred = self.loc_encoder(loc_feats)
+        if class_of_interest is not None:
+            class_pred = class_pred[:, class_of_interest]
+        return class_pred
     
     def shared_step(self, batch):
         y, feats, rand_feats = batch
@@ -123,28 +132,34 @@ class SDM(pl.LightningModule):
         self.log("val_loss", loss, sync_dist=True, prog_bar=True)
         return loss
 
-    def train_dataloader(self):
-        return DataLoader(
-            LocationDataset("./data/gbif_full_filtered-train.csv"), 
-            batch_size=128, 
-            num_workers=16, 
-            shuffle=True)
-
-    def val_dataloader(self):
-        return DataLoader(
-            LocationDataset("./data/gbif_full_filtered-validation.csv"), 
-            batch_size=128, 
-            num_workers=16, 
-            shuffle=False,
-            persistent_workers=False)
-
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
 
 if __name__=='__main__':
-    experiment_name = 'STL-loc-base'
+    experiment_name = 'STL-loc-ent'
+    loss_type = 'max_entropy'
 
-    model = SDM()
+    # Create datasets
+    train_dataset = LocationDataset("./data/gbif_full_filtered-train.csv")
+    val_dataset = LocationDataset("./data/gbif_full_filtered-validation.csv")
+
+    # Create dataloaders
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=128,
+        num_workers=16,
+        shuffle=True
+    )
+    
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=128,
+        num_workers=16,
+        shuffle=False,
+        persistent_workers=False
+    )
+
+    model = SDM(loss_type = loss_type)
     wandb_logger = WandbLogger(project='ecobound', name=experiment_name)
 
     checkpoint = ModelCheckpoint(
@@ -162,6 +177,5 @@ if __name__=='__main__':
                          strategy='ddp',
                          val_check_interval=0.25)
     
-    trainer.fit(model)
+    trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
     trainer.save_checkpoint(f"models/{experiment_name}.ckpt")
-    wandb_logger.finish()
