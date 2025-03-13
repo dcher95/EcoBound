@@ -26,11 +26,16 @@ All scripts are run from the EcoBound level:
 cd EcoBound
 ```
 
-Generating priors. All outputs will be in outputs folder.:
+Generating priors. All outputs will be in outputs folder:
 ```
 # Train the model
 python scripts/model.py
 
 # Run inference on all species
 python scripts/inference.py
+```
+
+Maps can also be created for specific species:
+```
+python scripts/plot_map.py
 ```

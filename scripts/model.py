@@ -14,7 +14,7 @@ def neg_log(x):
     return -torch.log(x + 1e-5)
 
 def bernoulli_entropy(p):
-    return p * neg_log(p) + (1 - p) * neg_log(p)
+    return p * neg_log(p) + (1-p) * neg_log(1-p)
 
 class ResLayer(nn.Module):
     def __init__(self, linear_size):
@@ -66,7 +66,7 @@ class ResidualFCNet(nn.Module):
 
 
 class SDM(pl.LightningModule):
-    def __init__(self, species_file = "./data/species.npy", loss_type='an_full'):
+    def __init__(self, species_file = "./data/species.npy", loss_type='an_full', target_weight = None):
         super(SDM, self).__init__()
 
         # TODO: Add option to include satellite imagery.
@@ -88,6 +88,8 @@ class SDM(pl.LightningModule):
 
         self.loss_type = loss_type
 
+        self.target_weight = (self.num_classes - 1) if target_weight == None else target_weight
+
     def forward(self, loc_feats):
         return self.loc_encoder(loc_feats)
     
@@ -108,36 +110,71 @@ class SDM(pl.LightningModule):
         logits = self(feats).sigmoid()
         rand_logits = self(rand_feats).sigmoid()
 
+        # Create target mask using one-hot encoding
+        target_mask = torch.zeros_like(logits, dtype=torch.bool, device=self.device)
+        target_mask.scatter_(1, y, True)  # y must be shape [B, 1]
+
+        metrics = {'total': None}
+        components = {}
+
         if self.loss_type == 'an_full':
             loss_pos = neg_log(1.0 - logits)
-            loss_pos[inds[:batch_size], y.squeeze(-1)] = 1024 * neg_log(logits[inds[:batch_size], y.squeeze(-1)])
-            loss_rand = neg_log(1 - rand_logits)
+            loss_pos[inds[:batch_size], y.squeeze(-1)] = self.target_weight * neg_log(logits[inds[:batch_size], y.squeeze(-1)]) # base = 1024
+            loss_rand = neg_log(1.0 - rand_logits)
 
-            return loss_pos.mean() + loss_rand.mean()
+            components['target'] = loss_pos[target_mask].mean()
+            components['non_target'] = loss_pos[~target_mask].mean()
+            components['background'] = loss_rand.mean()
+            metrics['total'] = loss_pos.mean() + loss_rand.mean()
+
         
         elif self.loss_type == 'max_entropy':
             loss_pos = -1 * bernoulli_entropy(1.0 - logits)
-            loss_pos[inds[:batch_size], y.squeeze(-1)] = 1024 * bernoulli_entropy(logits[inds[:batch_size], y.squeeze(-1)])
-            loss_rand = -1 * bernoulli_entropy(1 - rand_logits)
+            loss_pos[inds[:batch_size], y.squeeze(-1)] = self.target_weight * bernoulli_entropy(logits[inds[:batch_size], y.squeeze(-1)])
+            loss_rand = -1 * bernoulli_entropy(1.0 - rand_logits)
 
-            return loss_pos.mean() + loss_rand.mean()
+            # Calculate metrics (convert to actual entropy values)
+            components['target'] = loss_pos[target_mask].mean()  # Direct entropy
+            components['non_target'] = -loss_pos[~target_mask].mean()  # Remove negative
+            components['background'] = -loss_rand.mean()  # Remove negative
+            metrics['total'] = loss_pos.mean() + loss_rand.mean()
+
+        # Store components with type-agnostic names
+        metrics.update({
+            'target_component': components['target'],
+            'non_target_component': components['non_target'],
+            'background_component': components['background']
+        })
+        
+        return metrics
+
+    def _log_components(self, stage):
+        # Unified logging for both loss types
+        suffix = '_loss' if self.loss_type == 'an_full' else '_entropy'
+        
+        self.log(f"{stage}/target{suffix}", self.metrics[f'target_component'], 
+                prog_bar=(stage == 'train'))
+        self.log(f"{stage}/non_target{suffix}", self.metrics['non_target_component'])
+        self.log(f"{stage}/background{suffix}", self.metrics['background_component'])
 
     def training_step(self, batch, batch_idx):
-        loss = self.shared_step(batch)
-        self.log("train_loss", loss, sync_dist=True, prog_bar=True)
-        return loss
-    
+        self.metrics = self.shared_step(batch)
+        self.log("train/loss", self.metrics['total'], sync_dist=True, prog_bar=True)
+        self._log_components('train')
+        return self.metrics['total']
+
     def validation_step(self, batch, batch_idx):
-        loss = self.shared_step(batch)
-        self.log("val_loss", loss, sync_dist=True, prog_bar=True)
-        return loss
+        self.metrics = self.shared_step(batch)
+        self.log("val/loss", self.metrics['total'], sync_dist=True, prog_bar=True)
+        self._log_components('val')
+        return self.metrics['total']
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
 
 if __name__=='__main__':
-    experiment_name = 'STL-loc-ent'
-    loss_type = 'max_entropy'
+    experiment_name = 'STL-loc-an_full-1024' # 'STL-loc-an_full-1024-alldata'
+    loss_type = 'an_full'
 
     # Create datasets
     train_dataset = LocationDataset("./data/gbif_full_filtered-train.csv")
@@ -159,11 +196,11 @@ if __name__=='__main__':
         persistent_workers=False
     )
 
-    model = SDM(loss_type = loss_type)
+    model = SDM(loss_type = loss_type, target_weight = 1024)
     wandb_logger = WandbLogger(project='ecobound', name=experiment_name)
 
     checkpoint = ModelCheckpoint(
-        monitor='val_loss',
+        monitor='val/loss',
         dirpath='checkpoints',
         filename='{experiment_name}-{epoch:02d}-{val_loss:.2f}',
         mode='min'

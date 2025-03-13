@@ -10,7 +10,7 @@ from model import SDM
 
 def main():
     # Inputs
-    experiment_name = "STL-loc-ent"
+    experiment_name = 'STL-loc-an_full-wgt'
     species = None # e.g. 'Sciurus carolinensis'
 
     ################

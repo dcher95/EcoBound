@@ -31,3 +31,5 @@ dependencies:
     #version 5
     - h5py
     - ipykernel
+    - geopandas
+    - contextily
