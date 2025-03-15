@@ -8,9 +8,18 @@ import geopandas as gpd
 from shapely.geometry import Point
 import contextily as ctx
 
-def load_data(experiment_name, species_file, coords_file, probs_file):
+from dataset import MapDataset
+import torch
+from config import config
+
+def load_data(species_file, probs_file):
+
+    # load coords from MapDataset to ensure consistency with inference.
+
+    mapdataset = MapDataset()
+    coords_df = mapdataset.coords.reset_index(drop=True)[['lon', 'lat']]
+
     species_names = np.load(species_file, allow_pickle=True)
-    coords_df = pd.read_csv(coords_file)
     species_probs = np.load(probs_file, allow_pickle=True)
     
     prob_df = pd.DataFrame(species_probs, columns=[f"prob_{name}" for name in species_names])
@@ -54,12 +63,10 @@ def generate_species_heatmap(results_df, species_list, experiment_name, output_d
         print(f"Saved: {output_path}")
 
 def main():
-    experiment_name = 'STL-loc-an_full-wgt'
+    experiment_name = config.experiment_name
     species_list = ["Sciurus carolinensis", "Danaus plexippus", "Cardinalis cardinalis", "Quercus alba"]
     results_df, species_names = load_data(
-        experiment_name, 
         "./data/species.npy", 
-        "./data/densely_sampled_pts.csv", 
         f"./outputs/species_priors/{experiment_name}.npy"
     )
     generate_species_heatmap(results_df, species_list, experiment_name)

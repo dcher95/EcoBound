@@ -9,6 +9,7 @@ from dataset import LocationDataset
 import numpy as np
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+from config import config
 
 def neg_log(x):
     return -torch.log(x + 1e-5)
@@ -66,7 +67,7 @@ class ResidualFCNet(nn.Module):
 
 
 class SDM(pl.LightningModule):
-    def __init__(self, species_file = "./data/species.npy", loss_type='an_full', target_weight = None):
+    def __init__(self, species_file = "./data/species.npy", loss_type='an_full', pos_weight = 1):
         super(SDM, self).__init__()
 
         # TODO: Add option to include satellite imagery.
@@ -79,25 +80,24 @@ class SDM(pl.LightningModule):
         species_data = np.load(species_file, allow_pickle=True)
         self.num_classes = len(species_data)
         
-        self.loc_encoder = ResidualFCNet(
-            num_inputs=4,
-            num_classes=self.num_classes,
-            num_filts=256,
-            depth=4
-        )
+        self.loc_encoder = ResidualFCNet()
+        self.class_projector = nn.Linear(1024, self.num_classes, bias=False)
 
         self.loss_type = loss_type
 
-        self.target_weight = (self.num_classes - 1) if target_weight == None else target_weight
+        self.pos_weight = (self.num_classes - 1) if pos_weight == 'num_classes' else pos_weight
 
     def forward(self, loc_feats):
-        return self.loc_encoder(loc_feats)
+        x = self.loc_encoder(loc_feats)
+        pred = self.class_projector(x)
+        return pred
     
     def forward_location_features(self, loc_feats):
         return self.loc_encoder(loc_feats)
     
-    def forward_species(self, loc_feats, class_of_interest=None):
-        class_pred = self.loc_encoder(loc_feats)
+    def forward_species(self,loc_feats, class_of_interest=None):
+        x = self.loc_encoder(loc_feats)
+        class_pred = self.class_projector(x)
         if class_of_interest is not None:
             class_pred = class_pred[:, class_of_interest]
         return class_pred
@@ -119,8 +119,8 @@ class SDM(pl.LightningModule):
 
         if self.loss_type == 'an_full':
             loss_pos = neg_log(1.0 - logits)
-            loss_pos[inds[:batch_size], y.squeeze(-1)] = self.target_weight * neg_log(logits[inds[:batch_size], y.squeeze(-1)]) # base = 1024
-            loss_rand = neg_log(1.0 - rand_logits)
+            loss_pos[inds[:batch_size], y.squeeze(-1)] = self.pos_weight * neg_log(logits[inds[:batch_size], y.squeeze(-1)]) # base = 1024
+            loss_rand = neg_log(1 - rand_logits)
 
             components['target'] = loss_pos[target_mask].mean()
             components['non_target'] = loss_pos[~target_mask].mean()
@@ -130,8 +130,8 @@ class SDM(pl.LightningModule):
         
         elif self.loss_type == 'max_entropy':
             loss_pos = -1 * bernoulli_entropy(1.0 - logits)
-            loss_pos[inds[:batch_size], y.squeeze(-1)] = self.target_weight * bernoulli_entropy(logits[inds[:batch_size], y.squeeze(-1)])
-            loss_rand = -1 * bernoulli_entropy(1.0 - rand_logits)
+            loss_pos[inds[:batch_size], y.squeeze(-1)] = self.pos_weight * bernoulli_entropy(logits[inds[:batch_size], y.squeeze(-1)])
+            loss_rand = -1 * bernoulli_entropy(1 - rand_logits)
 
             # Calculate metrics (convert to actual entropy values)
             components['target'] = loss_pos[target_mask].mean()  # Direct entropy
@@ -172,47 +172,61 @@ class SDM(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
 
-if __name__=='__main__':
-    experiment_name = 'STL-loc-an_full-1024' # 'STL-loc-an_full-1024-alldata'
-    loss_type = 'an_full'
+def main():
+    experiment_name = config.experiment_name
+    loss_type = config.loss_type
+    pos_weight = config.pos_weight
+    batch_size = config.batch_size
+    train_path = config.train_path 
+    val_path = config.val_path
+
+    pl.seed_everything(config.seed, workers=True)
 
     # Create datasets
-    train_dataset = LocationDataset("./data/gbif_full_filtered-train.csv")
-    val_dataset = LocationDataset("./data/gbif_full_filtered-validation.csv")
+    train_dataset = LocationDataset(train_path)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=16, shuffle=True)
 
-    # Create dataloaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=128,
-        num_workers=16,
-        shuffle=True
-    )
+    if val_path:
+        val_dataset = LocationDataset(val_path)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=16, shuffle=False, persistent_workers=False )
     
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=128,
-        num_workers=16,
-        shuffle=False,
-        persistent_workers=False
-    )
-
-    model = SDM(loss_type = loss_type, target_weight = 1024)
+    model = SDM(loss_type = loss_type, pos_weight = pos_weight)
     wandb_logger = WandbLogger(project='ecobound', name=experiment_name)
 
-    checkpoint = ModelCheckpoint(
-        monitor='val/loss',
-        dirpath='checkpoints',
-        filename='{experiment_name}-{epoch:02d}-{val_loss:.2f}',
-        mode='min'
-    )
+    # Monitoring
+    if val_path:
+        checkpoint = ModelCheckpoint(
+            dirpath='checkpoints',
+            filename=f'{experiment_name}-{{epoch:02d}}-{{val/loss:.2f}}',
+            monitor='val/loss',
+            mode='min',
+            save_top_k=1,
+            every_n_epochs=1,
+            auto_insert_metric_name=False
+        )
+    else:
+        checkpoint = ModelCheckpoint(
+            dirpath='checkpoints',
+            filename=f'{experiment_name}-{{epoch:02d}}',
+            save_top_k=-1,  # Save all checkpoints
+            every_n_epochs=1
+        )
 
+    callbacks = [checkpoint]
     trainer = pl.Trainer(max_epochs=5, 
                          logger=wandb_logger, 
                          devices=1, 
                          accelerator='gpu',
-                         callbacks=[checkpoint],
+                         callbacks=callbacks,
                          strategy='ddp',
                          val_check_interval=0.25)
     
-    trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-    trainer.save_checkpoint(f"models/{experiment_name}.ckpt")
+    if val_path:
+        trainer.fit(model, train_loader, val_loader)
+    else:
+        trainer.fit(model, train_loader)
+
+    trainer.save_checkpoint(f"./models/{experiment_name}.ckpt")
+
+if __name__=='__main__':
+    main()

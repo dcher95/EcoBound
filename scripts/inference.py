@@ -8,9 +8,11 @@ from dataset import MapDataset
 
 from model import SDM
 
+from config import config
+
 def main():
     # Inputs
-    experiment_name = 'STL-loc-an_full-wgt'
+    experiment_name = config.experiment_name
     species = None # e.g. 'Sciurus carolinensis'
 
     ################
@@ -21,7 +23,7 @@ def main():
 
     # Densely sampled dataset
     mapdataset = MapDataset()
-    maploader = torch.utils.data.DataLoader(mapdataset, batch_size=128, shuffle=False, num_workers=16)
+    maploader = torch.utils.data.DataLoader(mapdataset, batch_size=config.batch_size, shuffle=False, num_workers=16)
 
     # Species data is necessary if doing specific species
     if species:
@@ -34,9 +36,9 @@ def main():
         for batch in tqdm(maploader):
             loc_feats = batch.cuda()
             if species:
-                logits = model.forward_species(loc_feats, class_of_interest=species_index)
+                logits = model(loc_feats, class_of_interest=species_index)
             else:
-                logits = model.forward_species(loc_feats)
+                logits = model(loc_feats)
             probs = torch.sigmoid(logits).cpu().numpy()
             species_probs.append(probs)
 

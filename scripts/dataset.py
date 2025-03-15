@@ -32,7 +32,7 @@ class LocationDataset(Dataset):
                 obs_file: str,
                 species_file: str = "./data/species.npy",
                 coords_file: str = "./data/st_louis_coords.csv",
-                bounds: Optional[Tuple[float, float, float, float]] = (-90.68099, -90.09099, 38.45601, 38.88601), 
+                bounds: Optional[Tuple[float, float, float, float]] = (-90.6809899999999942, -90.0909899999996924, 38.4560099999999991, 38.8860099999999136), 
                 transform=None):
         """
         Dataset for species observations, encoding locations using sinusoidal features.
@@ -82,7 +82,7 @@ class LocationDataset(Dataset):
 class MapDataset(Dataset):
     def __init__(self, 
                  sampled_csv : str = '/data/cher/EcoBound/data/densely_sampled_pts.csv', 
-                 bounds: Optional[Tuple[float, float, float, float]] = (-90.68099, -90.09099, 38.45601, 38.88601)):
+                 bounds: Optional[Tuple[float, float, float, float]] = (-90.6809899999999942, -90.0909899999996924, 38.4560099999999991, 38.8860099999999136)):
         self.coords = pd.read_csv(sampled_csv)
         self.coords = self.coords[self.coords["lon"] != max(self.coords["lon"])]
         self.coords = self.coords[self.coords["lat"] != max(self.coords["lat"])]
