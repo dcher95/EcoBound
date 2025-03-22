@@ -22,15 +22,15 @@ dependencies:
     - torchmetrics==0.11.0
     - scikit-learn==1.2.0
     - scikit-image==0.19.3
-    - matplotlib
-    - numpy
-    - torchgeo
+    - matplotlib==3.10.1
+    - numpy==1.26.4
+    - torchgeo==0.6.2
     #version 3
     - webdataset==0.2.33
     - braceexpand==0.1.7
     #version 5
-    - h5py
-    - ipykernel
-    - geopandas
-    - contextily
-    - easydict
+    - h5py==3.13.0
+    - ipykernel==6.29.5
+    - geopandas==1.0.1
+    - contextily==1.6.2
+    - easydict==1.13
