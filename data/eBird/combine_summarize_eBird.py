@@ -31,6 +31,9 @@ def combine_ebird_data(output_path):
     # Explicitly fill any remaining NAs in species columns with 0
     combined_df[full_species_list] = combined_df[full_species_list].fillna(0).astype(int)
 
+    # Drop species columns that contain only zeros # Untested
+    combined_df = combined_df.loc[:, (combined_df != 0).any(axis=0)]
+
     # Reorder columns to maintain consistency
     ordered_columns = list(combined_df.columns[:11]) + full_species_list
     combined_df = combined_df[ordered_columns]
