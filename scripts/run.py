@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 
-import model
+import train
 import inference
 import plot_map
 
@@ -17,15 +17,15 @@ def main():
 
     if args.train:
         print("Starting training...")
-        model.main()  # Adjust if the function is named differently
+        train.main()  
 
     if args.infer:
         print("Running inference...")
-        inference.main()  # Adjust accordingly
+        inference.main()  
 
     if args.plot:
         print("Generating plots...")
-        plot_map.main()  # Adjust accordingly
+        plot_map.main()  
 
 if __name__ == "__main__":
     main()
