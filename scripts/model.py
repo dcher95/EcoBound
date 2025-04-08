@@ -32,7 +32,7 @@ class SDM(pl.LightningModule):
         self.register_buffer('species_weights', species_weights)
 
         self.loc_encoder = ResidualFCNet()
-        self.class_projector = nn.Linear(1024, self.num_classes, bias=False)
+        self.class_projector = nn.Linear(256, self.num_classes, bias=False)
 
         self.pos_weight = (self.num_classes - 1) if pos_weight == 'num_classes' else pos_weight
 

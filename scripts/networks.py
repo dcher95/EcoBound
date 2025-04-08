@@ -22,7 +22,7 @@ class ResLayer(nn.Module):
 
 class ResidualFCNet(nn.Module):
 
-    def __init__(self, num_inputs=4, num_classes=1024, num_filts=256, depth=4):
+    def __init__(self, num_inputs=4, num_filts=256, depth=4):
         super(ResidualFCNet, self).__init__()
         self.inc_bias = False
         layers = []
@@ -31,20 +31,7 @@ class ResidualFCNet(nn.Module):
         for i in range(depth):
             layers.append(ResLayer(num_filts))
         self.feats = torch.nn.Sequential(*layers)
-        self.class_emb = nn.Linear(num_filts, num_classes, bias=self.inc_bias)
 
     def forward(self, x, class_of_interest=None, return_feats=False):
         loc_emb = self.feats(x)
-        if return_feats:
-            return loc_emb
-        if class_of_interest is None:
-            class_pred = self.class_emb(loc_emb)
-        else:
-            class_pred = self.eval_single_class(loc_emb, class_of_interest)
-        return class_pred
-
-    def eval_single_class(self, x, class_of_interest):
-        if self.inc_bias:
-            return x @ self.class_emb.weight[class_of_interest, :] + self.class_emb.bias[class_of_interest]
-        else:
-            return x @ self.class_emb.weight[class_of_interest, :]
+        return loc_emb

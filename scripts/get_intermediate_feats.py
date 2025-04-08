@@ -39,5 +39,7 @@ def main():
     os.makedirs("./outputs/loc_features", exist_ok = True) 
     np.save(f'./outputs/loc_features/{experiment_name}.npy', features_all)
 
+    print("Saved intermediate outputs: ", f'./outputs/loc_features/{experiment_name}.npy')
+
 if __name__ == "__main__":
     main()

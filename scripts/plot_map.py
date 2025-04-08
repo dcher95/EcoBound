@@ -28,6 +28,7 @@ def load_data(species_file, probs_file):
     return results_df, species_names
 
 def generate_species_heatmap(results_df, species_list, experiment_name, output_dir="./outputs/species_priors/maps"):
+    output_dir += f"/{experiment_name}"
     os.makedirs(output_dir, exist_ok=True)
     
     for species in tqdm(species_list, desc = 'Processing species'):
@@ -56,7 +57,7 @@ def generate_species_heatmap(results_df, species_list, experiment_name, output_d
         ax.set_yticks([])
         
         # Save plot
-        output_path = os.path.join(output_dir, f"{species}-{experiment_name}.png")
+        output_path = os.path.join(output_dir, f"{species}.png")
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         
@@ -68,6 +69,7 @@ def main():
     results_df, species_names = load_data(
         "./data/species.npy", 
         f"./outputs/species_priors/{experiment_name}.npy"
+        
     )
     generate_species_heatmap(results_df, species_list, experiment_name)
 

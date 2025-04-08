@@ -12,17 +12,20 @@ config.val_path = None # "./data/gbif_full_filtered-validation.csv" # "./data/gb
 # training params
 config.modalities = 'loc'
 config.loss_type = 'an_full' # max_entropy, an_full
-config.pos_weight = 1024 # int or 'num_classes' TODO: inverse_weighting
+config.pos_weight = 1024 # int or 'num_classes'
 config.batch_size = 128 # Try larger batch-size!
 config.max_epochs = 5
 config.species_weights_method = 'uniform' # "inversely_proportional_not_normalized", "inversely_proportional_sqrt", "inversely_proportional_clipped", "inversely_proportional"
 
+config.lambda_1 = 1
+config.lambda_2 = 0.8
+
 # experiment params
 config.data_splits_naming = 'train_val' if config.val_path else 'full'
-config.experiment_name = f'{config.data_region}-{config.data_splits_naming}-{config.modalities}-{config.loss_type}-{config.batch_size}-{config.pos_weight}' # 'STL-loc-an_full-1024'
+config.experiment_name = f'{config.data_region}-{config.data_splits_naming}-{config.modalities}-{config.loss_type}-{config.batch_size}-{config.pos_weight}-256filts' # 'STL-loc-an_full-1024'
 
 
-# experiments TODO
+# experiments
 
 # Base
 # loss_type = 'an_full' pos_weight = 1024 batch_size = 128

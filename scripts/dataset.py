@@ -82,12 +82,13 @@ class LocationDataset(Dataset):
 class MapDataset(Dataset):
     def __init__(self, 
                  sampled_csv : str = '/data/cher/EcoBound/data/densely_sampled_pts.csv', 
-                 bounds: Optional[Tuple[float, float, float, float]] = (-90.6809899999999942, -90.0909899999996924, 38.4560099999999991, 38.8860099999999136)):
+                 bounds: Optional[Tuple[float, float, float, float]] = (-90.6809899999999942, -90.0909899999996924, 38.4560099999999991, 38.8860099999999136), 
+                ):
         self.coords = pd.read_csv(sampled_csv)
-        self.coords = self.coords[self.coords["lon"] != max(self.coords["lon"])]
-        self.coords = self.coords[self.coords["lat"] != max(self.coords["lat"])]
-        self.coords = self.coords[self.coords["lon"] != min(self.coords["lon"])]
-        self.coords = self.coords[self.coords["lat"] != min(self.coords["lat"])]
+        # self.coords = self.coords[self.coords["lon"] != max(self.coords["lon"])]
+        # self.coords = self.coords[self.coords["lat"] != max(self.coords["lat"])]
+        # self.coords = self.coords[self.coords["lon"] != min(self.coords["lon"])]
+        # self.coords = self.coords[self.coords["lat"] != min(self.coords["lat"])]
         self.bounds = bounds
     
     def __len__(self):
