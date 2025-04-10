@@ -24,6 +24,8 @@ config.lambda_2 = 0.8
 config.data_splits_naming = 'train_val' if config.val_path else 'full'
 config.experiment_name = f'{config.data_region}-{config.data_splits_naming}-{config.modalities}-{config.loss_type}-{config.batch_size}-{config.pos_weight}-256filts' # 'STL-loc-an_full-1024'
 
+# testing
+config.testing_df_path = "/data/cher/EcoBound/data/eBird/eBird_STL.csv"
 
 # experiments
 
