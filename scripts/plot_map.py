@@ -65,7 +65,16 @@ def generate_species_heatmap(results_df, species_list, experiment_name, output_d
 
 def main():
     experiment_name = config.experiment_name
-    species_list = ["Sciurus carolinensis", "Danaus plexippus", "Cardinalis cardinalis", "Quercus alba"]
+    # species_list = ["Sciurus carolinensis", "Danaus plexippus", "Cardinalis cardinalis", "Quercus alba"]
+    # mAP > 0.4
+    species_list = ['Aix galericulata', 'Cardinalis cardinalis', 'Turdus migratorius',
+       'Cyanocitta cristata', 'Haemorhous mexicanus', 'Zenaida macroura',
+       'Piranga ludoviciana', 'Sturnus vulgaris', 'Passer domesticus',
+       'Dryobates pubescens', 'Baeolophus bicolor',
+       'Melanerpes carolinus', 'Passer montanus', 'Spinus tristis',
+       'Branta canadensis', 'Poecile carolinensis', 'Sitta carolinensis',
+       'Thryothorus ludovicianus', 'Sialia sialis', 'Junco hyemalis']
+    
     results_df, species_names = load_data(
         "./data/species.npy", 
         f"./outputs/species_priors/{experiment_name}.npy"

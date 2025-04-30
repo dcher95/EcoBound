@@ -82,7 +82,7 @@ class LocationDataset(Dataset):
 class MapDataset(Dataset):
     def __init__(self, 
                  sampled_data: Union[str, pd.DataFrame] = '/data/cher/EcoBound/data/densely_sampled_pts.csv', 
-                 bounds: Optional[Tuple[float, float, float, float]] = (-90.68099, -90.09099, 38.45601, 38.88601)):
+                 bounds: Optional[Tuple[float, float, float, float]] = (-90.6809899999999942, -90.0909899999996924, 38.4560099999999991, 38.8860099999999136)):
         """
         Initializes the MapDataset.
 

@@ -18,6 +18,8 @@ def main():
     experiment_name = config.experiment_name
     testing_df_path = config.testing_df_path
     species = None
+    all_species = True
+    
     model_path = f"./models/{experiment_name}.ckpt"
 
     # generated in testing
@@ -55,8 +57,12 @@ def main():
     df_presence = binary_presence_df[valid_species]
 
     # Build a DataFrame for species probabilities using pd.concat
-    prob_col_names = [f"prob_{sp}" for sp in valid_species]
-    df_probs = pd.DataFrame(species_probs_filtered, columns=prob_col_names, index=df_output.index)
+    if all_species:
+        prob_col_names = [f"prob_{sp}" for sp in inat_species_list]
+        df_probs = pd.DataFrame(species_probs, columns=prob_col_names, index=df_output.index)
+    else:
+        prob_col_names = [f"prob_{sp}" for sp in valid_species]
+        df_probs = pd.DataFrame(species_probs_filtered, columns=prob_col_names, index=df_output.index)
 
     # Build a DataFrame for the features column (each row gets a list of features)
     df_features = pd.DataFrame({"features": list(features_all)})
@@ -69,7 +75,7 @@ def main():
 
     # Save the combined DataFrame
     os.makedirs("./outputs/active_loop", exist_ok=True)
-    output_csv_path = f"./outputs/active_loop/{experiment_name}_combined.csv"
+    output_csv_path = f"./outputs/active_loop/{experiment_name}_combined_all_species.csv"
     newframe.to_csv(output_csv_path, index=False)
     print(f"Combined dataframe saved to {output_csv_path}")
 

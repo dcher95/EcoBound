@@ -175,6 +175,7 @@ def main():
     testing_df_path = config.testing_df_path
     species = None
     model_path = f"./models/{experiment_name}.ckpt"
+    cross_species_comparison = True
 
     # Load dataset
     binary_presence_df, _ = generate_binary_presence_dataset(
@@ -211,29 +212,66 @@ def main():
         "f1s": f1s_all
     }
 
+    # Cross-species evaluation
+    if cross_species_comparison:
+        num_species = len(valid_species)
+        cross_species_metrics = {}
+
+        for i, pred_sp in enumerate(valid_species):
+            for j, true_sp in enumerate(valid_species):
+                if i == j:
+                    continue  # Skip same-species unless you want self-evals too
+
+                y_score = species_probs_filtered[:, i]
+                y_true = binary_presence_df[true_sp].values
+                y_pred = (y_score >= 0.5).astype(int)
+
+                if np.sum(y_true) == 0 or np.sum(y_true) == len(y_true):
+                    continue  # No class variation — skip
+
+                try:
+                    ap = average_precision_score(y_true, y_score)
+                    auc = roc_auc_score(y_true, y_score)
+                    f1 = f1_score(y_true, y_pred)
+                    if ap > 0.3:
+                        cross_species_metrics[f"{pred_sp}_on_{true_sp}"] = {
+                            "ap": ap,
+                            "auc": auc,
+                            "f1": f1
+                        }
+                        print(f"{pred_sp} on {true_sp} — AP: {ap:.3f}, AUC: {auc:.3f}, F1: {f1:.3f}")
+                except Exception as e:
+                    print(f"Skipping {pred_sp} on {true_sp}: {e}")
+                    continue
+
+        # Save cross-species metrics separately
+        save_metrics(cross_species_metrics, experiment_name + "_cross_species")
+
+
     # Thresholded evaluations
-    ebird_species_data = '/data/cher/EcoBound/data/eBird/species_summary.json'
-    thresholds = [0.5, 1.0, 2.0, 5.0]
-    for threshold in thresholds:
-        aps, aucs, f1s, mean_metrics = evaluate_species_subset(
-            binary_presence_df, species_probs_filtered, valid_species,
-            inat_species_list, ebird_species_data, threshold
-        )
-        if aps is not None:
-            print(f"{threshold}% Threshold — mAP: {mean_metrics['mean_ap']:.3f}, "
-                f"AUC: {mean_metrics['mean_auc']:.3f}, F1: {mean_metrics['mean_f1']:.3f}")
-            metrics_by_threshold[f"{threshold}_percent"] = {
-                "mean_metrics": mean_metrics,
-                "aps": aps,
-                "aucs": aucs,
-                "f1s": f1s
-            }
-        else:
-            print(f"No species met the {threshold}% presence threshold.")
+    else:
+        ebird_species_data = '/data/cher/EcoBound/data/eBird/species_summary.json'
+        thresholds = [0.5, 1.0, 2.0, 5.0]
+        for threshold in thresholds:
+            aps, aucs, f1s, mean_metrics = evaluate_species_subset(
+                binary_presence_df, species_probs_filtered, valid_species,
+                inat_species_list, ebird_species_data, threshold
+            )
+            if aps is not None:
+                print(f"{threshold}% Threshold — mAP: {mean_metrics['mean_ap']:.3f}, "
+                    f"AUC: {mean_metrics['mean_auc']:.3f}, F1: {mean_metrics['mean_f1']:.3f}")
+                metrics_by_threshold[f"{threshold}_percent"] = {
+                    "mean_metrics": mean_metrics,
+                    "aps": aps,
+                    "aucs": aucs,
+                    "f1s": f1s
+                }
+            else:
+                print(f"No species met the {threshold}% presence threshold.")
 
 
-    # Save results
-    save_metrics(metrics_by_threshold, experiment_name)
+        # Save results
+        save_metrics(metrics_by_threshold, experiment_name)
 
 if __name__ == "__main__":
     main()

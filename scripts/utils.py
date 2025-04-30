@@ -16,23 +16,27 @@ def get_species_weights(num_obs, species_counts, species_weights_method):
     Returns:
         Tensor: Computed species weights.
     """
+    eps = 1e-5
+
     if species_weights_method == "inversely_proportional":
-        species_weights = num_obs / (species_counts + 1e-5)
+        species_weights = num_obs / (species_counts + eps)
+
     elif species_weights_method == "inversely_proportional_clipped":
-        species_weights = num_obs / (species_counts + 1e-5)
-        species_weights = np.clip(species_weights, 0.05, 20)
+        species_weights = num_obs / (species_counts + eps)
+        species_weights = torch.clamp(species_weights, min=0.05, max=20.0)
+
     elif species_weights_method == "inversely_proportional_sqrt":
-        species_weights = np.sqrt(num_obs / (species_counts + 1e-5))
-    elif species_weights_method == "uniform":
-        species_weights = torch.ones_like(species_counts, device=species_counts.device)
+        species_weights = torch.sqrt(num_obs / (species_counts + eps))
+
+    # elif species_weights_method == "uniform":
+    #     species_weights = torch.ones_like(species_counts, device=species_counts.device)
+
     elif species_weights_method == "inversely_proportional_not_normalized":
-        species_weights = 1 / (species_counts + 1e-5)
+        species_weights = 1.0 / (species_counts + eps)
+
     else:
-        raise ValueError(
-            "species_weights_method must be 'inversely_proportional', "
-            "'inversely_proportional_clipped', 'inversely_proportional_sqrt', "
-            "'uniform' or 'inversely_proportional_not_normalized'"
-        )
+        species_weights = None
+
     return species_weights
 
 def load_species_weights(species_file, species_counts_file, species_weights_method):

@@ -14,12 +14,13 @@ def main():
     train_path = config.train_path 
     val_path = config.val_path
     max_epochs = config.max_epochs
+    species_weights_method = config.species_weights_method
 
     pl.seed_everything(config.seed, workers=True)
 
     # Create datasets and dataloaders.
     train_dataset = LocationDataset(train_path)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=16, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=8, shuffle=True)
 
     val_loader = None
     if val_path:
@@ -27,7 +28,9 @@ def main():
         val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=16, shuffle=False, persistent_workers=False)
     
     # Initialize the model.
-    model = SDM(loss_type=loss_type, pos_weight=pos_weight)
+    model = SDM(loss_type=loss_type, 
+                pos_weight=pos_weight,
+                species_weights_method=species_weights_method)
 
     # Setup logging.
     wandb_logger = WandbLogger(project='ecobound', name=experiment_name)

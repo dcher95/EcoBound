@@ -22,7 +22,7 @@ class SDM(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        # Load species data and precompute species weights using the utility function.
+        # Load species data and precompute species weights 
         species_to_index, species_weights, num_classes = load_species_weights(
             species_file, species_counts_file, species_weights_method
         )
@@ -39,7 +39,13 @@ class SDM(pl.LightningModule):
         # Get the loss function based on loss_type
         self.loss_type = loss_type
         self.learning_rate = learning_rate
-        self.loss_fn = get_losses(self.loss_type)
+
+        # Let utils handle loss-specific kwargs
+        self.loss_fn = get_losses(
+            loss_type=self.loss_type,
+            pos_weight=self.pos_weight,
+            species_weights=self.species_weights 
+        )
 
     def forward(self, loc_feats):
         x = self.loc_encoder(loc_feats)
@@ -57,13 +63,13 @@ class SDM(pl.LightningModule):
         return class_pred
     
     def shared_step(self, batch):
-        y, feats, rand_feats = batch
+        target, feats, rand_feats = batch
         
         logits = self(feats).sigmoid()
         rand_logits = self(rand_feats).sigmoid()
 
         # Compute the loss and its components using the loss function.
-        total_loss, components = self.loss_fn(logits, rand_logits, y, self.pos_weight)
+        total_loss, components = self.loss_fn(logits, rand_logits, target)
         
         # Organize metrics for logging.
         metrics = {
@@ -76,7 +82,7 @@ class SDM(pl.LightningModule):
 
     def _log_components(self, stage):
         # Unified logging for both loss types
-        suffix = '_loss' if self.loss_type == 'an_full' else '_entropy'
+        suffix = '_loss' if 'an_full' in self.loss_type else '_entropy'
         
         self.log(f"{stage}/target{suffix}", self.metrics[f'target_component'], 
                 prog_bar=(stage == 'train'))
